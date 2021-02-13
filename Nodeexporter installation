@@ -1,0 +1,215 @@
+Installation Node exporter in amazonlinux2 amzonlinux1 , centos ubuntu 
+
+https://kbild.ch/blog/2019-02-18-awsprometheus/
+
+Note : user deletion : userdel -r monitoring
+
+Amazon linux 2 
+sudo su
+useradd -m -s /bin/bash monitoring
+cd /home/monitoring
+wget https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+tar -xzvf node_exporter-1.0.1.linux-amd64.tar.gz
+mkdir node_exporter
+mv node_exporter-1.0.1.linux-amd64 /home/monitoring/node_exporter
+rm -rf node_exporter-1.0.1.linux-amd64.tar.gz
+chown -R monitoring:monitoring /home/monitoring/node_exporter
+cd /home/ec2-user/
+tee -a /etc/systemd/system/node_exporter.service << END
+[Unit]
+Description=Node Exporter
+Wants=network-online.target
+After=network-online.target
+[Service]
+User=monitoring
+ExecStart=/home/monitoring/node_exporter/node_exporter-1.0.1.linux-amd64/node_exporter
+[Install]
+WantedBy=default.target
+END
+
+systemctl daemon-reload
+systemctl start node_exporter
+systemctl enable node_exporter
+systemctl status node_exporter
+
+**********************************************************************************************************
+centos 
+sudo su
+
+#!/bin/bash
+
+useradd -m -s /bin/bash monitoring
+cd /home/monitoring
+wget https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+tar -xzvf node_exporter-1.0.1.linux-amd64.tar.gz
+mkdir node_exporter
+mv node_exporter-1.0.1.linux-amd64 /home/monitoring/node_exporter
+rm -rf node_exporter-1.0.1.linux-amd64.tar.gz  
+chown -R monitoring:monitoring /home/monitoring/node_exporter
+cd /home/centos/
+tee -a /etc/systemd/system/node_exporter.service << END
+[Unit]
+Description=Node Exporter
+Wants=network-online.target
+After=network-online.target
+[Service]
+User=monitoring
+ExecStart=/home/monitoring/node_exporter/node_exporter-1.0.1.linux-amd64/node_exporter
+[Install]
+WantedBy=default.target
+END
+systemctl daemon-reload
+systemctl start node_exporter
+systemctl enable node_exporter
+systemctl status node_exporter
+
+********************************************************************************************************************
+ubuntu 
+adduser monitoring
+Password monitoring
+
+sudo useradd node_exporter -s /sbin/nologin
+
+adduser monitoring 
+cd /home/monitoring
+wget https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+tar -xzvf node_exporter-1.0.1.linux-amd64.tar.gz
+mkdir node_exporter
+mv node_exporter-1.0.1.linux-amd64 /home/monitoring/node_exporter
+rm -rf node_exporter-1.0.1.linux-amd64.tar.gz  
+chown -R monitoring:monitoring /home/monitoring/node_exporter
+cd /home/ubuntu/
+tee -a /etc/systemd/system/node_exporter.service << END
+[Unit]
+Description=Node Exporter
+Wants=network-online.target
+After=network-online.target
+[Service]
+User=monitoring
+ExecStart=/home/monitoring/node_exporter/node_exporter-1.0.1.linux-amd64/node_exporter
+[Install]
+WantedBy=default.target
+END
+systemctl daemon-reload
+systemctl start node_exporter
+systemctl enable node_exporter
+systemctl status node_exporter
+
+
+userdel -r monitoring
+
+
+How to setup prometheus target 
+
+https://devopscube.com/monitor-linux-servers-prometheus-node-exporter/
+
+Configure the Server as Target on Prometheus Server
+Now that we have the node exporter up and running on the server, we have to add this server a target on the Prometheus server configuration.
+Note: This configuration should be done on the Prometheus server.
+Step 1: Login to the Prometheus server and open the prometheus.yml file.
+sudo vi /etc/prometheus/prometheus.yml
+Step 2: Under the scrape config section add the node exporter target as shown below. Change 10.142.0.3 with your server IP where you have setup node exporter. Job name can be your server hostname or IP for identification purposes.
+- job_name: 'node_exporter_metrics'
+  scrape_interval: 5s
+  static_configs:
+    - targets: ['10.142.0.3:9100']
+
+From <https://devopscube.com/monitor-linux-servers-prometheus-node-exporter/> 
+
+Step 3: Restart the prometheus service for the configuration changes to take place.
+sudo systemctl restart prometheus
+Now, if you check the target in prometheus web UI (http://<prometheus-IP>:9090/targets) , you will be able to see the status as shown below.
+
+Also, you can use the Prometheus expression browser to query for node related metrics. Following are the few key node metrics you can use to find its statistics.
+node_memory_MemFree_bytes
+node_cpu_seconds_total
+node_filesystem_avail_bytes
+rate(node_cpu_seconds_total{mode="system"}[1m]) 
+rate(node_network_receive_bytes_total[1m])
+
+Follow “Integrate And Visualize Prometheus Metrics In Grafana” blog to visualize the node exporter metrics in Grafana.
+
+******************************************************************************
+
+Node exporter form amazon linux-AMI 1 
+
+Navigate to amazon ec2-user 
+
+Vi nodexporter.sh 
+
+#!/bin/bash
+sudo useradd --shell /bin/false monitoring
+sudo mkdir /var/log/monitoring/
+sudo touch /var/log/monitoring/node_exporter.log
+sudo chown -R monitoring:monitoring /var/log/monitoring
+sudo cat > initscript <<'endmsg'
+#!/bin/bash
+#
+# chkconfig: 2345 20 80 Read
+# description: node_exporter will export system metrics in a Prometheus format
+# processname: node_exporter
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+PROGNAME=node_exporter
+PROGDIR=/home/monitoring/node_exporter
+PROG=$PROGDIR/$PROGNAME
+USER=monitoring
+LOGFILE=/var/log/monitoring/$PROGNAME.log
+LOCKFILE=/var/run/$PROGNAME.pid
+
+start() {
+echo -n "Starting $PROGNAME: "
+cd $PROGDIR
+daemon --user $USER --pidfile="$LOCKFILE" "$PROG &>$LOGFILE &"
+echo $(pidofproc $PROGNAME) >$LOCKFILE
+echo
+}
+
+stop() {
+echo -n "Shutting down $PROGNAME: "
+killproc $PROGNAME
+rm -f $LOCKFILE
+echo
+}
+
+
+case "$1" in
+start)
+start
+;;
+stop)
+stop
+;;
+status)
+status $PROGNAME
+;;
+restart)
+stop
+start
+;;
+reload)
+echo "Sending SIGHUP to $PROGNAME"
+kill -SIGHUP $(pidofproc $PROGNAME)
+;;
+*)
+echo "Usage: service $PROGNAME {start|stop|status|reload|restart}"
+exit 1
+;;
+esac
+endmsg
+sudo mv initscript /etc/init.d/node_exporter
+sudo chmod +x /etc/init.d/node_exporter
+sudo chown monitoring:monitoring /etc/init.d/node_exporter
+curl -LO https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+sudo mkdir /home/monitoring/node_exporter
+sudo tar -xf node_exporter-1.0.1.linux-amd64.tar.gz
+sudo mv node_exporter-*/* /home/monitoring/node_exporter/
+sudo chown -R monitoring:monitoring /home/monitoring/node_exporter
+sudo chkconfig --add node_exporter
+sudo service node_exporter start
+
+
+*************************************************
+Sh node_exporter.sh 
