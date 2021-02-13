@@ -1,0 +1,30 @@
+Errror no data is coming 
+Issue seems : no space left 
+
+Check the volume is attached or not 
+
+Kubectl get pvc -n prometheus 
+
+Pick the VOLUME id from the above and paste in aws volume console 
+Check the instance where this volume is attached 
+Navigate to that instance ans ssh 
+#sudo su
+#df -h
+
+Note without root the volume is not visible 
+Check the volume attached with which server 
+
+# df -h 
+Navigate to aws console search the volume 
+Current : 7 gb 
+Modify : 16 gb 
+
+Navigate to that server again 
+And resize the filesystem 
+sudo resize2fs /dev/nvme1n1
+
+## df -h 
+Check the prometheus server 
+
+Its Up now 
+
